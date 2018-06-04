@@ -1,0 +1,11 @@
+ljanyst [12 months ago]
+You may want to try putting more weight on the differentials and epsi, and less on cte and speed
+
+
+gpavlov [12 months ago]
+It looks similar to a problem I noticed with cte calculation: the equation from mpc-to-line project is not good here, try replacing cte1 - ((f0 - y0) + (v0 * CppAD::sin(epsi0) * dt)) with cte1 - (f1 - y1);
+
+vivek1108 [11 months ago]
+anthony-s: Try playing with delta t and N. That should improve the swerving in the lane.
+
+guess its because your car is swaying back and forth. Waypoints are in car’s coordinates. Try putting more weight on delta term in your cost function (a multiplier, for example 500).

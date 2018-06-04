@@ -1,108 +1,79 @@
-# CarND-Controls-MPC
-Self-Driving Car Engineer Nanodegree Program
+## Udacity - Self Driving Car Nanodegree (Term 2) - MPC Project
+[![Udacity - Self-Driving Car NanoDegree](https://s3.amazonaws.com/udacity-sdc/github/shield-carnd.svg)](http://www.udacity.com/drive)
 
+Background
+---
+In this project, my goal is to build a Model Predictive Control that will autonomously drive a car around a track in a simulation.
+
+Overview of Repository
+---
+This repository contains the following source files that I have forked from the [main repository](https://github.com/udacity/CarND-MPC-Project) and subsequently modified for the MPC project:
+
+1.  [MPC.cpp](https://github.com/MartinKan/CarND-MPC-Project/blob/master/src/MPC.cpp)
+2.  [MPC.h](https://github.com/MartinKan/CarND-MPC-Project/blob/master/src/MPC.h)
+3.  [main.cpp](https://github.com/MartinKan/CarND-MPC-Project/blob/master/src/main.cpp)
+
+Summary of the MPC model
+---
+The MPC class implements the MPC model using the IPOPT optimizer, which “solves" the problem of coming up with the best trajectory (and the actuator values to use at each timestamp to create that trajectory) for the car given a defined set of constraints, cost equations and kinematic model. This MPC model is summarized as follows:
+
+![alt text](https://github.com/MartinKan/CarND-MPC-Project/blob/master/images/model_setup.JPG)
+
+In this model, the duration of the predicted trajectory is defined by two variables: N and dt.  N is the number of timestamps in the trajectory and dt is the difference in time between each successive timestamps (in seconds).  The product of N and dt will give you the total duration of the predicted trajectory (which will be represented in the simulator as a green line).
+
+For each timestamp along the predicted trajectory, the MPC model computes the predicted state of the vehicle, which includes its x and y coordinates (i.e. its location), angle, velocity, cross track error (distance from the center line) and angle deviation.  The predicted state of the vehicle at each timestamp is computed by feeding the following information into the IPOPT optimizer:
+
+- previous state of the vehicle
+- the kinematic model (as depicted in the diagram above)
+- the actuator constraints (i.e. constraints of the steering angle and throttle)
+- the cost equations
+
+The IPOPT optimizer will solve the problem of finding the best trajectory for the vehicle given these criteria.  The optimizer will return a giant vector that contains the values of the predicted state at each timestamp as well as the actuator inputs that are required to achieve those predicted values.  The values of the actuator inputs can then be used by us to drive the vehicle in the simulation around the track.
+
+One thing that is worth mentioning: the choice of f(x) (used in the kinematic model to calculate the CTE) is determined by us.  In the project, we were advised to use a third order polynomial for f(x) since it is able to mimick curved lines quite well.  The result is a predicted trajectory that behaves like a third order polynomial.
+
+Selection of values for N and DT
 ---
 
-## Dependencies
+I have experimented with different combinations of N and DT and settled in the end for N = 15 and dt = 0.04.  This produces a predicted trajectory of 0.6s in duration and it was both relatively easy for the optimizer to solve and provided sufficient data to the optimizer to [MANUVOER] the corners gracefully, as shown below:
 
-* cmake >= 3.5
- * All OSes: [click here for installation instructions](https://cmake.org/install/)
-* make >= 4.1(mac, linux), 3.81(Windows)
-  * Linux: make is installed by default on most Linux distros
-  * Mac: [install Xcode command line tools to get make](https://developer.apple.com/xcode/features/)
-  * Windows: [Click here for installation instructions](http://gnuwin32.sourceforge.net/packages/make.htm)
-* gcc/g++ >= 5.4
-  * Linux: gcc / g++ is installed by default on most Linux distros
-  * Mac: same deal as make - [install Xcode command line tools]((https://developer.apple.com/xcode/features/)
-  * Windows: recommend using [MinGW](http://www.mingw.org/)
-* [uWebSockets](https://github.com/uWebSockets/uWebSockets)
-  * Run either `install-mac.sh` or `install-ubuntu.sh`.
-  * If you install from source, checkout to commit `e94b6e1`, i.e.
-    ```
-    git clone https://github.com/uWebSockets/uWebSockets
-    cd uWebSockets
-    git checkout e94b6e1
-    ```
-    Some function signatures have changed in v0.14.x. See [this PR](https://github.com/udacity/CarND-MPC-Project/pull/3) for more details.
+![alt text](https://github.com/MartinKan/CarND-MPC-Project/blob/master/images/Tuned.gif)
 
-* **Ipopt and CppAD:** Please refer to [this document](https://github.com/udacity/CarND-MPC-Project/blob/master/install_Ipopt_CppAD.md) for installation instructions.
-* [Eigen](http://eigen.tuxfamily.org/index.php?title=Main_Page). This is already part of the repo so you shouldn't have to worry about it.
-* Simulator. You can download these from the [releases tab](https://github.com/udacity/self-driving-car-sim/releases).
-* Not a dependency but read the [DATA.md](./DATA.md) for a description of the data sent back from the simulator.
+When a higher value of N is chosen, the problem becomes harder to solve and it may occasionally result in the car going off track for this reason.  Below is an example of this when the values N = 20 and dt = 0.04 are chosen:
 
+![alt text](https://github.com/MartinKan/CarND-MPC-Project/blob/master/images/N20DT004.gif)
 
-## Basic Build Instructions
+Alternatively, when a smaller value of N is chosen, it may not provide sufficient data to the optimizer to [MANUVOER] the corners gracefully.  Below is an example of this when the values N = 10 and dt = 0.04 are chosen, you can see how the vehicle clipped the curb when it made the right turn:
 
-1. Clone this repo.
-2. Make a build directory: `mkdir build && cd build`
-3. Compile: `cmake .. && make`
-4. Run it: `./mpc`.
+![alt text](https://github.com/MartinKan/CarND-MPC-Project/blob/master/images/N10DT004.gif)
 
-## Tips
+When a higher value of DT is chosen, it also made the vehicle veer off the tracks.  Presumably because it takes longer for the vehicle to self correct when errors occur, as shown below when values N = 15 and dt = 0.1 are chosen:
 
-1. It's recommended to test the MPC on basic examples to see if your implementation behaves as desired. One possible example
-is the vehicle starting offset of a straight line (reference). If the MPC implementation is correct, after some number of timesteps
-(not too many) it should find and track the reference line.
-2. The `lake_track_waypoints.csv` file has the waypoints of the lake track. You could use this to fit polynomials and points and see of how well your model tracks curve. NOTE: This file might be not completely in sync with the simulator so your solution should NOT depend on it.
-3. For visualization this C++ [matplotlib wrapper](https://github.com/lava/matplotlib-cpp) could be helpful.)
-4.  Tips for setting up your environment are available [here](https://classroom.udacity.com/nanodegrees/nd013/parts/40f38239-66b6-46ec-ae68-03afd8a601c8/modules/0949fca6-b379-42af-a919-ee50aa304e6a/lessons/f758c44c-5e40-4e01-93b5-1a82aa4e044f/concepts/23d376c7-0195-4276-bdf0-e02f1f3c665d)
-5. **VM Latency:** Some students have reported differences in behavior using VM's ostensibly a result of latency.  Please let us know if issues arise as a result of a VM environment.
+![alt text](https://github.com/MartinKan/CarND-MPC-Project/blob/master/images/N15DT01.gif)
 
-## Editor Settings
+Data preprocessing
+---
 
-We've purposefully kept editor configuration files out of this repo in order to
-keep it as simple and environment agnostic as possible. However, we recommend
-using the following settings:
+To help compute some of the input data that feeds into the MPC model (e.g. CTE), I preprocessed the waypoints and transformed them from the map space to the car space using a rotation matrix each time prior to invoking the MPC code (lines 99 to 110 of main.cpp).  I then fit a polynomial to the waypoint coordinates (lines 112 to 115 of main.cpp) and proceed to compute the cross track error and the orientation error of the vehicle (lines 117 to 120 of main.cpp).  It is easier to transform the waypoints from map space to car space before working out the CTE and orientation error, since in car space, the X and Y coordinates and orientation of the car are all equivalent to 0.  Once we worked out the CTE and orientation error of the vehicle, we then load them into a state vector along with the vehicle's X and Y coordinates in car space (i.e. (0,0)), orientation in car space (also 0) and its velocity (returned to us by the simulator).  The actuator inputs are not loaded into the state vector as they are not needed by the MPC model.  This state vector is then passed to the MPC code to compute the best trajectory given the current state.
 
-* indent using spaces
-* set tab width to 2 spaces (keeps the matrices in source code aligned)
+Dealing with latency
+---
 
-## Code Style
+I deal with the 100ms latency in my code by using a separate set of kinematic equations that factor in the latency by substituting dt with the amount of the latency (lines 170 to 178 of MPC.cpp).  This will compute the new state space of the vehicle after the latency has elapsed.
 
-Please (do your best to) stick to [Google's C++ style guide](https://google.github.io/styleguide/cppguide.html).
+Running the code
+---
 
-## Project Instructions and Rubric
+To run the code, first compile the code by running the following command:
 
-Note: regardless of the changes you make, your project must be buildable using
-cmake and make!
+	cmake .. && make
 
-More information is only accessible by people who are already enrolled in Term 2
-of CarND. If you are enrolled, see [the project page](https://classroom.udacity.com/nanodegrees/nd013/parts/40f38239-66b6-46ec-ae68-03afd8a601c8/modules/f1820894-8322-4bb3-81aa-b26b3c6dcbaf/lessons/b1ff3be0-c904-438e-aad3-2b5379f0e0c3/concepts/1a2255a0-e23c-44cf-8d41-39b8a3c8264a)
-for instructions and the project rubric.
+Then run the code by executing the following command:
 
-## Hints!
+	./mpc
 
-* You don't have to follow this directory structure, but if you do, your work
-  will span all of the .cpp files here. Keep an eye out for TODOs.
+Alternatively, the code can be ran by using command line arguments:
 
-## Call for IDE Profiles Pull Requests
+  ./mpc [N] [dt] [v] [M1] [M2] [M3] [M4] [M5] [M6] [M7]
 
-Help your fellow students!
-
-We decided to create Makefiles with cmake to keep this project as platform
-agnostic as possible. Similarly, we omitted IDE profiles in order to we ensure
-that students don't feel pressured to use one IDE or another.
-
-However! I'd love to help people get up and running with their IDEs of choice.
-If you've created a profile for an IDE that you think other students would
-appreciate, we'd love to have you add the requisite profile files and
-instructions to ide_profiles/. For example if you wanted to add a VS Code
-profile, you'd add:
-
-* /ide_profiles/vscode/.vscode
-* /ide_profiles/vscode/README.md
-
-The README should explain what the profile does, how to take advantage of it,
-and how to install it.
-
-Frankly, I've never been involved in a project with multiple IDE profiles
-before. I believe the best way to handle this would be to keep them out of the
-repo root to avoid clutter. My expectation is that most profiles will include
-instructions to copy files to a new location to get picked up by the IDE, but
-that's just a guess.
-
-One last note here: regardless of the IDE used, every submitted project must
-still be compilable with cmake and make./
-
-## How to write a README
-A well written README file can enhance your project and portfolio.  Develop your abilities to create professional README files by completing [this free course](https://www.udacity.com/course/writing-readmes--ud777).
+Where M1 - M7 represent the multipliers for the cost functions.

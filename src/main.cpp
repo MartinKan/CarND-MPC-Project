@@ -35,7 +35,7 @@ string hasData(string s) {
 // Evaluate a polynomial.
 double polyeval(Eigen::VectorXd coeffs, double x) {
   double result = 0.0;
-  for (int i = 0; i < coeffs.size(); i++) {
+  for (unsigned int i = 0; i < coeffs.size(); i++) {
     result += coeffs[i] * pow(x, i);
   }
   return result;
@@ -50,12 +50,12 @@ Eigen::VectorXd polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals,
   assert(order >= 1 && order <= xvals.size() - 1);
   Eigen::MatrixXd A(xvals.size(), order + 1);
 
-  for (int i = 0; i < xvals.size(); i++) {
+  for (unsigned int i = 0; i < xvals.size(); i++) {
     A(i, 0) = 1.0;
   }
 
-  for (int j = 0; j < xvals.size(); j++) {
-    for (int i = 0; i < order; i++) {
+  for (unsigned int j = 0; j < xvals.size(); j++) {
+    for (unsigned int i = 0; i < order; i++) {
       A(j, i + 1) = A(j, i) * xvals(j);
     }
   }
@@ -65,11 +65,15 @@ Eigen::VectorXd polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals,
   return result;
 }
 
-int main() {
+int main(int argc, char** argv) {
   uWS::Hub h;
 
+  // Verify number of command line arguments is correct
+  if (argc > 1 && argc != 11)
+  	 throw std::invalid_argument( "10 arguments required but only " + std::to_string(argc - 1) + " arguments detected!" );
+
   // MPC is initialized here!
-  MPC mpc;
+  MPC mpc(argc, argv);
 
   h.onMessage([&mpc](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
@@ -92,14 +96,74 @@ int main() {
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
 
+          // Transform the waypoint coordinates from map space to car space (origin will be the car's location)
+          vector<double> ptsx_transformed;
+          vector<double> ptsy_transformed;
+          for (unsigned int i = 0; i < ptsx.size(); i++)
+          {
+          	double x = ptsx[i] - px;
+		  	double y = ptsy[i] - py;
+          	double x_transformed = x * cos(-psi) - y * sin(-psi);
+          	double y_transformed = x * sin(-psi) + y * cos(-psi);
+          	ptsx_transformed.push_back(x_transformed);
+          	ptsy_transformed.push_back(y_transformed);
+          }
+
+		  // Fit a polynomial to the waypoint coordinates
+		  Eigen::VectorXd ptsx_temp = Eigen::Map<Eigen::VectorXd, Eigen::Unaligned>(ptsx_transformed.data(), ptsx_transformed.size());
+  		  Eigen::VectorXd ptsy_temp = Eigen::Map<Eigen::VectorXd, Eigen::Unaligned>(ptsy_transformed.data(), ptsy_transformed.size());
+		  auto coeffs = polyfit(ptsx_temp, ptsy_temp, 3);
+
+		  // Calculate the cross track error
+		  double cte = coeffs[0];
+		  // Calculate the orientation error
+		  double epsi = -atan(coeffs[1]); // psi is 0 and can be omitted
+
+		  Eigen::VectorXd state(6);
+		  state << 0.0, 0.0, 0.0, v, cte, epsi;
+
+		  std::vector<double> x_vals = {state[0]};
+		  std::vector<double> y_vals = {state[1]};
+		  std::vector<double> psi_vals = {state[2]};
+		  std::vector<double> v_vals = {state[3]};
+		  std::vector<double> cte_vals = {state[4]};
+		  std::vector<double> epsi_vals = {state[5]};
+		  std::vector<double> delta_vals = {};
+		  std::vector<double> a_vals = {};
+
+		  auto vars = mpc.Solve(state, coeffs);
+
+		  x_vals.erase(x_vals.begin()); // No need to display the initial state when rendering the predicted trajectory
+		  y_vals.erase(y_vals.begin()); // No need to display the initial state when rendering the predicted trajectory
+
+		  // Values for the first timestamp
+		  x_vals.push_back(vars[0]);
+		  y_vals.push_back(vars[1]);
+		  psi_vals.push_back(vars[2]);
+		  v_vals.push_back(vars[3]);
+		  cte_vals.push_back(vars[4]);
+		  epsi_vals.push_back(vars[5]);
+		  delta_vals.push_back(vars[6]);
+		  a_vals.push_back(vars[7]);
+
+		  // Add the X values for the remaining timestamps
+		  for (unsigned int i = 8; i < (8 + ((vars.size() - 8) / 2)); i++) {
+    	  		x_vals.push_back(vars[i]);
+  		  }
+
+		  // Add the Y values for the remaining timestamps
+  		  for (unsigned int i = (8 + ((vars.size() - 8) / 2)); i < vars.size(); i++) {
+    	  		y_vals.push_back(vars[i]);
+  		  }
+
           /*
           * TODO: Calculate steering angle and throttle using MPC.
           *
           * Both are in between [-1, 1].
           *
           */
-          double steer_value;
-          double throttle_value;
+          double steer_value = delta_vals[0];
+          double throttle_value = a_vals[0];
 
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
@@ -111,6 +175,9 @@ int main() {
           vector<double> mpc_x_vals;
           vector<double> mpc_y_vals;
 
+          mpc_x_vals = x_vals;
+          mpc_y_vals = y_vals;
+
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
 
@@ -121,6 +188,9 @@ int main() {
           vector<double> next_x_vals;
           vector<double> next_y_vals;
 
+          next_x_vals = ptsx_transformed;
+          next_y_vals = ptsy_transformed;
+
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Yellow line
 
@@ -128,8 +198,7 @@ int main() {
           msgJson["next_y"] = next_y_vals;
 
 
-          auto msg = "42[\"steer\"," + msgJson.dump() + "]";
-          std::cout << msg << std::endl;
+          auto msg = "42[\"steer\"," + msgJson.dump() + "]";      
           // Latency
           // The purpose is to mimic real driving conditions where
           // the car does actuate the commands instantly.

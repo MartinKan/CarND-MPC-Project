@@ -74,6 +74,6 @@ Then run the code by executing the following command:
 
 Alternatively, the code can be ran by using command line arguments:
 
-  ./mpc [N] [dt] [v] [M1] [M2] [M3] [M4] [M5] [M6] [M7]
+	./mpc [N] [dt] [v] [M1] [M2] [M3] [M4] [M5] [M6] [M7]
 
 Where M1 - M7 represent the multipliers for the cost functions.

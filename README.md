@@ -35,7 +35,7 @@ One thing that is worth mentioning: the choice of f(x) (used in the kinematic mo
 Selection of values for N and DT
 ---
 
-I have experimented with different combinations of N and DT and settled in the end for N = 15 and dt = 0.04.  This produces a predicted trajectory of 0.6s in duration and it was both relatively easy for the optimizer to solve and provided sufficient data to the optimizer to [MANUVOER] the corners gracefully, as shown below:
+I have experimented with different combinations of N and DT and settled in the end for N = 15 and dt = 0.04.  This produces a predicted trajectory of 0.6s in duration and it was both relatively easy for the optimizer to solve and provided sufficient data to the optimizer to manoeuvre the corners gracefully, as shown below:
 
 ![alt text](https://github.com/MartinKan/CarND-MPC-Project/blob/master/images/Tuned.gif)
 
@@ -43,7 +43,7 @@ When a higher value of N is chosen, the problem becomes harder to solve and it m
 
 ![alt text](https://github.com/MartinKan/CarND-MPC-Project/blob/master/images/N20DT004.gif)
 
-Alternatively, when a smaller value of N is chosen, it may not provide sufficient data to the optimizer to [MANUVOER] the corners gracefully.  Below is an example of this when the values N = 10 and dt = 0.04 are chosen, you can see how the vehicle clipped the curb when it made the right turn:
+Alternatively, when a smaller value of N is chosen, it may not provide sufficient data to the optimizer to manoeuvre the corners gracefully.  Below is an example of this when the values N = 10 and dt = 0.04 are chosen, you can see how the vehicle clipped the curb when it made the right turn:
 
 ![alt text](https://github.com/MartinKan/CarND-MPC-Project/blob/master/images/N10DT004.gif)
 
